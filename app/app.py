@@ -1,171 +1,192 @@
-import pandas as pd
-import duckdb
-import glob
-import os
+from shiny import App, ui, reactive, render
+from shiny.ui import tags
 
-# ==============================================================================
-# 1. CONFIGURAÇÃO
-# ==============================================================================
-CAMINHO_DADOS = "./data/dados_revisados"
-CAMINHO_DB = "data/db/hackathon.duckdb"
+custom_css = """
+    /* --- RESET & GERAL --- */
+    html, body { margin: 0 !important; padding: 0 !important; width: 100%; height: 100%; overflow: hidden; }
+    .container-fluid { padding: 0 !important; max-width: 100% !important; }
+    .bg { background-color: #fff; }
 
-# Garante pastas
-pasta_db = os.path.dirname(CAMINHO_DB)
-if not os.path.exists(pasta_db):
-    os.makedirs(pasta_db)
-
-print(f"Conectando ao banco: {CAMINHO_DB}")
-con = duckdb.connect(CAMINHO_DB)
-
-# ==============================================================================
-# 2. MAPA DE TRADUÇÃO (PADRONIZAÇÃO)
-# ==============================================================================
-# Garante que independente de como está no Excel, no banco fica padrão
-DE_PARA_COLUNAS = {
-    # Pergunta e Tipo
-    'IdPergunta': 'ID_Pergunta', 'IDPergunta': 'ID_Pergunta',
-    'Tipo': 'TipoPergunta', 'TipoDePergunta': 'TipoPergunta',
-    'Grupo': 'GrupoDePergunta', 'GrupoPergunta': 'GrupoDePergunta',
-    'Questao': 'Pergunta', 'Enunciado': 'Pergunta',
-    'Ordem': 'Ordem',
+    /* --- HEADER UFPR --- */
+    .ufpr-header {
+        background-color: #004b8d; color: white; height: 80px;
+        display: flex; gap: 35px; align-items: center;
+        padding: 55px 80px; 
+        width: 100%; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        z-index: 1; 
+        position: relative;
+    }
     
-    # Unidade
-    'SiglaLotacao': 'SiglaLotação',
-    'UnidadeGestora': 'UnidadeGestora', 'Unidade': 'UnidadeGestora',
-    'Lotacao': 'Lotação',
+    h4 { font-family: 'Roboto', sans-serif; font-weight: 600; font-size: 28px; margin: 0; }
+    img { width: 100; max-width: 120px; }
+
+    /* --- BOTÃO MENU HEADER --- */
+    .btn-reset {
+        color: white !important; background: transparent !important;
+        border: none !important; text-decoration: none !important;
+        cursor: pointer !important; padding: 0 !important; margin: 0 !important;
+        display: flex !important; align-items: center;
+    }
+    .btn-reset:hover { opacity: 0.8; }
     
-    # Curso / Disciplina
-    'CodCurso': 'Cod_Curso',
-    'SetorCurso': 'Setor_Curso',
-    'CodDisciplina': 'Cod_Disciplina',
-    'NomeDisciplina': 'Nome_Disciplina',
-    'CodProf': 'Cod_Prof',
+    /* --- SIDEBAR --- */
+    .menu-lateral {
+        position: fixed; z-index: 99999;
+        background-color: #fff;    
+        padding: 25px 55px;
+        height: 100vh; width: 350px; 
+        display: none; 
+        box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+        flex-direction: column !important; 
+    }
     
-    # Fato
-    'IdPesquisa': 'ID_Pesquisa',
-    'Ano': 'Ano'
-}
-
-# ==============================================================================
-# 3. FUNÇÃO DE INGESTÃO INTELIGENTE
-# ==============================================================================
-def ingerir_para_tabela(df, nome_tabela_destino):
-    """Joga o DataFrame para dentro de uma tabela de staging no DuckDB"""
+    /* --- ESTILIZAÇÃO DOS BOTÕES DO MENU (MODIFICADO) --- */
+    .btn-nav-custom {
+        width: 100%; text-align: left; margin-bottom: 10px;
+        background: transparent; border: none; color: #333;
+        font-size: 18px; padding: 10px; /* Adicionei padding geral para o fundo não ficar colado */
+        border-bottom: 1px solid #eee; transition: 0.2s;
+        border-radius: 5px; /* Arredonda levemente os cantos do hover */
+    }
     
-    # 1. Padroniza colunas
-    df.columns = df.columns.str.strip()
-    df.rename(columns=DE_PARA_COLUNAS, inplace=True)
+    .btn-nav-custom:hover { 
+        padding-left: 20px; /* Aumenta o deslocamento para a direita */
+        background-color: #f5f5dc; /* <--- O BEGE AQUI */
+        color: #000; /* <--- Mantém PRETO/ESCURO em vez de azul */
+        font-weight: 500; 
+    }
+
+    .overlay-escura {
+        background-color: black; position:fixed; top: 0; left:0; width: 100vw; z-index:999; height: 100vh; opacity: .5; padding: 20px; display: none;
+    }
+
+    /* --- BOTÃO FECHAR (X) --- */
+    #btn_fechar {
+        align-self: flex-end !important;
+        background-color: transparent !important; border: none !important;
+        box-shadow: none !important; outline: none !important;
+        width: auto !important; padding: 0 !important; line-height: 1 !important; margin-bottom: 20px !important;
+        font-size: 24px !important; font-weight: bold !important; color: #333 !important;
+    }
+    #btn_fechar:hover, #btn_fechar:active, #btn_fechar:focus {
+        background-color: transparent !important; color: #333 !important; box-shadow: none !important; border: none !important; outline: none !important;
+    }
+
+    /* --- CONTEUDO PRINCIPAL (SPA CONTAINER) --- */
+    .conteudo-spa {
+        padding: 40px 80px;
+        height: calc(100vh - 80px); 
+        overflow-y: auto; 
+    }
     
-    # 2. Registra temporariamente
-    con.register('temp_view', df)
+    .page-title { color: #004b8d; margin-bottom: 20px; border-bottom: 2px solid #004b8d; padding-bottom: 10px; display: inline-block; }
+"""
+
+app_ui = ui.page_fluid(
+    tags.head(tags.style(custom_css)),
+    tags.head(
+        tags.link(rel="preconnect", href="https://fonts.googleapis.com"),
+        tags.link(rel="preconnect", href="https://fonts.gstatic.com", crossorigin="anonymous"),
+        tags.link(href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap", rel="stylesheet"),
+        tags.link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"), 
+    ),
+
+    ui.output_ui("css_controlador"), 
+
+    tags.div(class_="overlay-escura"),
+
+    # --- MENU LATERAL ---
+    tags.section(
+        ui.input_action_button("btn_fechar", "✕"), 
+
+        tags.nav(
+            tags.ul(
+                tags.li(ui.input_action_button("nav_home", "Painel Principal", class_="btn-nav-custom")), 
+                tags.li(ui.input_action_button("nav_inst", "Institucional", class_="btn-nav-custom")), 
+                tags.li(ui.input_action_button("nav_cursos", "Cursos", class_="btn-nav-custom")), 
+                tags.li(ui.input_action_button("nav_disc", "Disciplinas", class_="btn-nav-custom"))
+            ),
+            style="list-style: none; padding: 0;"
+        ), 
+        class_="menu-lateral"
+    ),
+
+    # --- HEADER ---
+    tags.header(
+        ui.input_action_link(
+            "btn_sidebar_toggle",  
+            label=None,
+            icon=tags.i(class_="fa-solid fa-bars", style="font-size:24px;"), 
+            class_="btn-reset"
+        ),
+        tags.img(src="https://ufpr.br/wp-content/themes/wpufpr_bootstrap5_portal/images/ufpr.png"),
+        tags.h4("UNIVERSIDADE FEDERAL DO PARANÁ"),
+        class_="ufpr-header"
+    ),
+
+    # --- SPA CONTAINER ---
+    tags.div(
+        ui.navset_hidden(
+            ui.nav_panel("home",
+                tags.h2("Visão Geral", class_="page-title"),
+                tags.p("Bem-vindo ao Painel Principal.")
+            ),
+            ui.nav_panel("institucional",
+                tags.h2("Institucional", class_="page-title"),
+                tags.p("Informações sobre a reitoria.")
+            ),
+            ui.nav_panel("cursos",
+                tags.h2("Cursos", class_="page-title"),
+                tags.p("Lista de cursos.")
+            ),
+            ui.nav_panel("disciplinas",
+                tags.h2("Disciplinas", class_="page-title"),
+                tags.p("Grade curricular.")
+            ),
+            id="router_principal"
+        ),
+        class_="conteudo-spa"
+    )
+)
+
+def server(input, output, session):
+    estado_menu = reactive.Value(False)
+
+    @reactive.effect
+    @reactive.event(input.btn_sidebar_toggle)
+    def _():
+        estado_menu.set(not estado_menu.get())
+
+    @reactive.effect
+    @reactive.event(input.btn_fechar)
+    def _():
+        estado_menu.set(False)
+
+    def navegar_para(page_id):
+        ui.update_navs("router_principal", selected=page_id)
+        estado_menu.set(False)
+
+    @reactive.effect
+    @reactive.event(input.nav_home)
+    def _(): navegar_para("home")
+
+    @reactive.effect
+    @reactive.event(input.nav_inst)
+    def _(): navegar_para("institucional")
     
-    # 3. Verifica se tabela existe. Se não, cria. Se sim, insere.
-    try:
-        # Tenta inserir
-        con.sql(f"INSERT INTO {nome_tabela_destino} BY NAME SELECT * FROM temp_view")
-    except:
-        # Se deu erro (provavelmente tabela não existe), cria ela
-        try:
-            con.sql(f"CREATE TABLE {nome_tabela_destino} AS SELECT * FROM temp_view")
-        except Exception as e:
-            # Se deu erro na criação (ex: coluna nova), faz o ALTER TABLE
-            cols_banco = [c[0] for c in con.sql(f"DESCRIBE {nome_tabela_destino}").fetchall()]
-            cols_df = df.columns.tolist()
-            novas = [c for c in cols_df if c not in cols_banco]
-            
-            for nova in novas:
-                print(f"   -> Expandindo {nome_tabela_destino} com: {nova}")
-                con.sql(f'ALTER TABLE {nome_tabela_destino} ADD COLUMN "{nova}" VARCHAR')
-            
-            con.sql(f"INSERT INTO {nome_tabela_destino} BY NAME SELECT * FROM temp_view")
+    @reactive.effect
+    @reactive.event(input.nav_cursos)
+    def _(): navegar_para("cursos")
 
-# ==============================================================================
-# 4. PROCESSAMENTO DOS ARQUIVOS (ROTEADOR DE ABAS)
-# ==============================================================================
-print("--- Iniciando processamento por ABAS ---")
+    @reactive.effect
+    @reactive.event(input.nav_disc)
+    def _(): navegar_para("disciplinas")
 
-# Limpa tabelas de staging antigas para começar do zero
-tabelas_stg = ['stg_dUnidade', 'stg_dPergunta', 'stg_dTipoPergunta', 'stg_dCurso', 'stg_dDisciplina', 'stg_fAvaliacao']
-for t in tabelas_stg:
-    con.sql(f"DROP TABLE IF EXISTS {t}")
+    @render.ui
+    def css_controlador():
+        if estado_menu.get():
+            return tags.style(".menu-lateral { display: flex !important;} .overlay-escura { display: block !important; }")
+        return None
 
-arquivos = glob.glob(os.path.join(CAMINHO_DADOS, "*.xlsx"))
-
-for i, arquivo in enumerate(arquivos):
-    nome_arquivo = os.path.basename(arquivo)
-    print(f"[{i+1}/{len(arquivos)}] Lendo: {nome_arquivo}")
-    
-    try:
-        abas = pd.read_excel(arquivo, sheet_name=None)
-    except Exception as e:
-        print(f"ERRO: {e}")
-        continue
-        
-    for nome_aba, df in abas.items():
-        # Lógica de Roteamento baseada no nome da Aba
-        aba_lower = nome_aba.lower()
-        
-        # Ignora abas vazias
-        if df.empty: continue
-
-        if 'unidade' in aba_lower:
-            ingerir_para_tabela(df, 'stg_dUnidade')
-            
-        elif 'tipo' in aba_lower and 'pergunta' in aba_lower:
-            ingerir_para_tabela(df, 'stg_dTipoPergunta')
-            
-        elif 'pergunta' in aba_lower: # Pega dPergunta ou dPerguntas
-            ingerir_para_tabela(df, 'stg_dPergunta')
-            
-        elif 'curso' in aba_lower and 'av' not in aba_lower: # Evita pegar nome do arquivo se tiver na aba
-            ingerir_para_tabela(df, 'stg_dCurso')
-            
-        elif 'disciplina' in aba_lower:
-            ingerir_para_tabela(df, 'stg_dDisciplina')
-            
-        elif 'avalia' in aba_lower or 'fato' in aba_lower:
-            ingerir_para_tabela(df, 'stg_fAvaliacao')
-            
-        else:
-            print(f"   Aviso: Aba '{nome_aba}' não mapeada. Ignorada.")
-
-# ==============================================================================
-# 5. CRIAÇÃO FINAL (LIMPEZA DE DUPLICATAS)
-# ==============================================================================
-print("\n--- Consolidando tabelas finais (3NF) ---")
-
-def criar_final(nome_stg, nome_final):
-    # Verifica se a tabela de staging foi criada (se tinha dados nos excels)
-    try:
-        con.sql(f"SELECT 1 FROM {nome_stg} LIMIT 1")
-    except:
-        print(f"Pulei {nome_final} (sem dados na origem).")
-        return
-
-    print(f"Criando {nome_final}...")
-    con.sql(f"CREATE OR REPLACE TABLE {nome_final} AS SELECT DISTINCT * FROM {nome_stg}")
-
-# Cria as tabelas finais removendo duplicatas
-criar_final('stg_dUnidade', 'dUnidade')
-criar_final('stg_dTipoPergunta', 'dTipoPergunta')
-criar_final('stg_dPergunta', 'dPergunta')
-criar_final('stg_dCurso', 'dCurso')
-criar_final('stg_dDisciplina', 'dDisciplina')
-criar_final('stg_fAvaliacao', 'fAvaliacao')
-
-# ==============================================================================
-# 6. RESUMO
-# ==============================================================================
-print("\n--- RESUMO DO BANCO ---")
-try:
-    con.sql("SHOW TABLES").show()
-    # Mostra contagem
-    for t in ['dUnidade', 'dPergunta', 'dTipoPergunta', 'fAvaliacao']:
-        try:
-            count = con.sql(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-            print(f"{t}: {count} linhas")
-        except: pass
-except:
-    pass
-
-con.close()
+app = App(app_ui, server)
