@@ -1,5 +1,0 @@
-shiny
-pandas
-duckdb==1.1.3
-openpyxl
-glob
