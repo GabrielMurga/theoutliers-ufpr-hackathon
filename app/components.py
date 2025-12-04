@@ -103,6 +103,14 @@ def criar_filtro_disciplinas():
             style="display:flex; gap: 15px; width: 100%; margin-top: 10px;"
         ),
         tags.div(
+            tags.div(
+                tags.label("Modalidade", style="font-weight: 500; font-size: 12px;"),
+                ui.input_select("disc_modalidade", label=None, choices=[], width="100%"),
+                style="flex: 1;"
+            ),
+            style="display:flex; gap: 15px; width: 100%; margin-top: 10px;"
+        ),
+        tags.div(
             ui.input_action_button("disc_btn_filtrar", "Atualizar Dados", class_="btn-primary"),
             style="padding-top: 15px;"
         ),

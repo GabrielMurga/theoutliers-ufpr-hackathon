@@ -5,7 +5,7 @@ def get_home_content():
     return tags.div(
         tags.h2("Apresentação dos Resultados", class_="page-title"),
         
-        # Introdução Geral
+        
         tags.div(
             tags.p(
                 "Bem-vindo à ferramenta de visualização de dados da Avaliação Institucional da UFPR. ",
@@ -16,9 +16,9 @@ def get_home_content():
             )
         ),
 
-        # Grid de Informações
+       
         ui.layout_column_wrap(
-            # Card 1: O que é o SINAES
+            
             tags.div(
                 tags.div(tags.i(class_="fa-solid fa-scale-balanced"), "Contexto Legal (SINAES)", class_="info-title"),
                 tags.div(
@@ -29,7 +29,7 @@ def get_home_content():
                 class_="info-box"
             ),
 
-            # Card 2: Metodologia de Pontuação
+            
             tags.div(
                 tags.div(tags.i(class_="fa-solid fa-chart-pie"), "Como ler os Dados", class_="info-title"),
                 tags.div(
@@ -46,7 +46,7 @@ def get_home_content():
                 class_="info-box"
             ),
 
-            # Card 3: Navegação
+            
             tags.div(
                 tags.div(tags.i(class_="fa-solid fa-location-arrow"), "Navegação", class_="info-title"),
                 tags.div(
@@ -64,7 +64,7 @@ def get_home_content():
 
         tags.br(),
 
-        # Seção dos 5 Eixos (Pode ser componentizada se desejar, mas deixei aqui por ser estático)
+        # Seção dos 5 Eixos )
         tags.div(
             tags.h4("Eixos Avaliativos do SINAES", style="color: #004b8d; margin-bottom: 20px; font-weight: 700;"),
             tags.div(

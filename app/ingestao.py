@@ -73,23 +73,23 @@ def inserir_dados_diretamente(con, dfs, evitar_duplicatas=False):
             
         print(f"[INFO] Processando tabela: {tabela}")
         
-        # Seleciona apenas as colunas definidas
+        
         colunas_validas = [col for col in COLUNAS[tabela] if col in df.columns]
         df = df[colunas_validas]
         
-        # Remove linhas completamente vazias
+        
         df = df.dropna(how='all')
         
         if df.empty:
             print(f"[INFO] Tabela {tabela} vazia após limpeza. Pulando.")
             continue
         
-        # Se evitar_duplicatas estiver ativado, remove duplicatas baseadas em todas as colunas
+        
         if evitar_duplicatas:
             df = df.drop_duplicates()
             print(f"[INFO] Removidas duplicatas da tabela {tabela}")
         
-        # Insere os dados
+        
         con.register("df_temp", df)
         con.execute(f"INSERT INTO {tabela} SELECT * FROM df_temp")
         
@@ -105,19 +105,19 @@ def processar_excel(path_excel: str, path_banco_principal: str, evitar_duplicata
         print(f"[INFO] Iniciando processamento do Excel: {path_excel}")
         print(f"[INFO] Banco principal: {path_banco_principal}")
         
-        # 1. Carregar Excel
+        
         dfs = carregar_excel(path_excel)
         
-        # 2. Validar estrutura
+        
         validar_abas(dfs)
         validar_colunas(dfs)
         
-        # 3. Conectar ao banco principal
+        
         con = duckdb.connect(path_banco_principal)
         
 
         
-        # 5. Inserir dados diretamente
+        
         total_registros = inserir_dados_diretamente(con, dfs, evitar_duplicatas)
         
         con.close()

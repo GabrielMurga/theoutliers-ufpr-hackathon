@@ -3,19 +3,19 @@ from shiny.ui import tags
 from graphs import *
 from components import card_excelencia_ui, lista_kpis_ui
 
-# --- UI GENÉRICA DO MÓDULO ---
+
 @module.ui
 def dashboard_ui(titulo, filtro_customizado_ui):
     return tags.div(
         tags.h2(titulo, class_="page-title"),
 
-        # BLOCO DE FILTRO (Injetado)
+       
         filtro_customizado_ui,
 
-        # Card Excelência
+        
         ui.output_ui("card_excelencia"),
 
-        # Título + Seleção cards/radar
+        
         tags.div(
             tags.div(
                 tags.h5("Detalhamento por Eixos", style="margin:0; margin-right: 20px; color: #666;"),
@@ -83,7 +83,7 @@ def dashboard_ui(titulo, filtro_customizado_ui):
         tags.br(), tags.br()
     )
 
-# --- SERVER GENÉRICO DO MÓDULO ---
+# SERVER GENÉRICO DO MÓDULO 
 @module.server
 def dashboard_server(input, output, session, dados_getter, donut_getter, barras_getter, dist_getter):
     

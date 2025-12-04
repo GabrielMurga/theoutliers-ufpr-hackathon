@@ -53,7 +53,6 @@ def criar_pagina_upload():
                     tags.li(tags.code("dPergunta"), " - Catálogo de perguntas"),
                     tags.li(tags.code("dTipoPergunta"), " - Tipos de perguntas"),
                     tags.li(tags.code("dUnidade"), " - Unidades administrativas"),
-                    tags.li(tags.code("dProfessor"), " - Professores"),
                     tags.li(tags.code("fAvaliacao"), " - Fato das avaliações"),
                 ),
                 style="padding-left: 20px;"

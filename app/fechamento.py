@@ -35,7 +35,7 @@ plt.xlabel('Quantidade de Respostas')
 plt.title('Top 10 Cursos com Mais Avaliações')
 plt.tight_layout()
 
-print("\n📊 Abrindo gráfico...")
+print("\nAbrindo gráfico...")
 plt.show()
 
 con.close()

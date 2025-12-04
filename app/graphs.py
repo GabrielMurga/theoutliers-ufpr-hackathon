@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 
-# --- CONFIGURAÇÃO VISUAL (MATPLOTLIB) ---
+#  CONFIGURAÇÃO VISUAL 
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Roboto', 'Arial', 'Helvetica', 'sans-serif']
 plt.rcParams['text.color'] = '#333333'

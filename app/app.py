@@ -5,19 +5,18 @@ from shiny.ui import tags
 from pathlib import Path
 import os
 
-# Importações dos novos arquivos
+
 from style import custom_css
 from data import get_unidades_disponiveis,get_eixos_sql,get_donut_sql,get_ranking_sql,get_distribuicao_sql,get_eixos_sql_disciplina,get_donut_sql_disciplina,get_ranking_sql_disciplina,get_distribuicao_sql_disciplina
 from components import *
 from ui_content import get_home_content
 from logic_filter import setup_cascading_filters
 from modules import dashboard_ui, dashboard_server
-from upload_page import criar_pagina_upload  # NOVA IMPORT
-from ingestao import processar_excel  # FUNÇÃO SIMPLIFICADA DE UPLOAD
+from upload_page import criar_pagina_upload  
+from ingestao import processar_excel  
 
 www_dir = Path(__file__).parent / "www"
 
-# Variável para mensagens de status
 status_ingestao_msg = None
 
 app_ui = ui.page_fluid(
@@ -32,8 +31,8 @@ app_ui = ui.page_fluid(
     ui.output_ui("css_controlador"), 
     tags.div(class_="overlay-escura"),
     
-    render_sidebar_nav(), # Componente Sidebar
-    render_header_ufpr("btn_sidebar_toggle"), # Componente Header
+    render_sidebar_nav(), 
+    render_header_ufpr("btn_sidebar_toggle"), 
     
     tags.div(
         ui.navset_hidden(
@@ -65,7 +64,7 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
     global status_ingestao_msg
     
-    # --- LÓGICA DE UI E NAVEGAÇÃO ---
+    
     estado_menu = reactive.Value(False)
     
     @reactive.effect
@@ -96,7 +95,7 @@ def server(input, output, session):
     @reactive.event(input.nav_disc)
     def _(): navegar_para("disciplinas")
     
-    # NOVO: Navegação para upload
+    
     @reactive.effect
     @reactive.event(input.nav_upload)
     def _(): navegar_para("upload")
@@ -105,15 +104,15 @@ def server(input, output, session):
     def css_controlador(): 
         return tags.style(".menu-lateral { display: flex !important;} .overlay-escura { display: block !important; }") if estado_menu.get() else None
 
-    # --- INICIALIZAÇÃO DE FILTROS ---
+    
     unidades = get_unidades_disponiveis()
     ui.update_select("inst_campus", choices=unidades)
     ui.update_select("curso_campus", choices=unidades)
     
-    # Chama a lógica complexa de filtros de disciplina (logic_filters.py)
+    
     setup_cascading_filters(input, ui)
 
-    # --- ESTADO DOS DADOS (REACTIVE VALUES) ---
+    
     # Institucional
     dados_inst = reactive.Value(get_eixos_sql("Institucional", "Todos"))
     donut_inst = reactive.Value(get_donut_sql("Institucional", "Todos"))
@@ -132,7 +131,7 @@ def server(input, output, session):
     barras_disc = reactive.Value({"titulo": "Top Disciplinas", "dados": []})
     dist_disc = reactive.Value({"notas": [], "media": 0})
 
-    # --- VARIÁVEL PARA MENSAGENS DE UPLOAD ---
+    
     status_ingestao_msg = reactive.Value("")
     
     @output
@@ -140,44 +139,44 @@ def server(input, output, session):
     def status_ingestao():
         return status_ingestao_msg.get()
     
-    # --- EVENTOS DE UPLOAD ---
+    
     @reactive.Effect
     @reactive.event(input.processar_excel)
     def _():
         file = input.upload_excel()
 
         if file is None:
-            status_ingestao_msg.set("❌ Nenhum arquivo enviado.")
+            status_ingestao_msg.set(" Nenhum arquivo enviado.")
             return
 
         caminho_temp = file[0]["datapath"]
         
         try:
-            # Mensagem inicial
-            status_ingestao_msg.set("📥 Carregando arquivo Excel...")
+            #
+            status_ingestao_msg.set("Carregando arquivo Excel...")
             
-            # Caminho do banco principal
+            
             BANCO_PRINCIPAL_PATH = r"C:\Users\gabri\Documents\theoutliers-ufpr-hackathon\data\db\hackathon.duckdb"
             
-            # Processar e inserir diretamente
+            
             total_registros = processar_excel(
                 caminho_temp, 
                 BANCO_PRINCIPAL_PATH,
                 evitar_duplicatas=True
             )
             
-            status_ingestao_msg.set(f"Sucesso! {total_registros} registros inseridos no banco principal.")
+            status_ingestao_msg.set(f"Sucesso! {total_registros} registros inseridos no banco.")
             
         except Exception as e:
-            # Log detalhado do erro
+            
             import traceback
             erro_detalhado = traceback.format_exc()
             print(f"ERRO DETALHADO:\n{erro_detalhado}")
             
-            # Mensagem amigável para o usuário
+            
             status_ingestao_msg.set(f" Erro ao processar arquivo:\n{str(e)[:150]}")
     
-    # --- AÇÃO: BAIXAR PDF ---
+    
     @reactive.Effect
     @reactive.event(input.baixar_pdf)
     def _():
@@ -188,9 +187,9 @@ def server(input, output, session):
             return
 
         os.system(f'start "" "{pdf_path}"')
-        status_ingestao_msg.set("📖 Manual aberto.")
+        status_ingestao_msg.set("Manual aberto.")
 
-    # --- EVENTOS DE ATUALIZAÇÃO DE DADOS ---
+    
     @reactive.effect
     @reactive.event(input.inst_btn_filtrar)
     def _():
@@ -216,15 +215,23 @@ def server(input, output, session):
         depto = input.disc_depto()
         curso = input.disc_curso()
         disciplina = input.disc_disciplina()
+        modalidade = input.disc_modalidade() 
 
-        dados_disc.set(get_eixos_sql_disciplina(setor, depto, curso, disciplina))
-        donut_disc.set(get_donut_sql_disciplina(setor, depto, curso, disciplina))
-        barras_disc.set(get_ranking_sql_disciplina(setor, depto, curso, disciplina))
-        dist_disc.set(get_distribuicao_sql_disciplina(setor, depto, curso, disciplina))
+        dados_disc.set(get_eixos_sql_disciplina(setor, depto, curso, disciplina, modalidade))
+        donut_disc.set(get_donut_sql_disciplina(setor, depto, curso, disciplina, modalidade))
+        barras_disc.set(get_ranking_sql_disciplina(setor, depto, curso, disciplina, modalidade))
+        dist_disc.set(get_distribuicao_sql_disciplina(setor, depto, curso, disciplina, modalidade))
 
-    # --- CHAMADA DOS MÓDULOS (Dashboard Server) ---
+    
     dashboard_server("inst", dados_inst, donut_inst, barras_inst, dist_inst)
     dashboard_server("cursos", dados_curso, donut_curso, barras_curso, dist_curso)
     dashboard_server("disc", dados_disc, donut_disc, barras_disc, dist_disc)
 
 app = App(app_ui, server, static_assets={"/static": www_dir})
+
+import os
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -9,12 +9,12 @@ from shiny.ui import tags
 from pathlib import Path
 
 
-# --- CONFIGURAÇÃO DO BANCO DE DADOS ---
+#  CONFIGURAÇÃO DO BANCO DE DADOS 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 if os.path.exists(os.path.join(base_dir, "hackathon.duckdb")):
     DB_PATH = os.path.join(base_dir, "hackathon.duckdb")
 else:
-    # Caminho alternativo caso esteja rodando em estrutura de pastas diferente
+    
     DB_PATH = os.path.join(base_dir, "..", "data", "db", "hackathon.duckdb")
     DB_PATH = os.path.abspath(DB_PATH)
 
@@ -24,19 +24,20 @@ def get_db_connection():
 def get_estrutura_academica():
     """
     Carrega a hierarquia completa para os filtros:
-    Setor (via dCurso) -> Departamento (via dDisciplina) -> Curso -> Disciplina
+    Setor (via dCurso) -> Departamento (via dDisciplina) -> Curso -> Disciplina -> Modalidade
     """
     conn = get_db_connection()
-    # Fazemos o JOIN entre Disciplina e Curso para garantir que a hierarquia bata com o Star Schema
+    # JOIN entre Disciplina e Curso para garantir que a hierarquia bata com o Star Schema
     query = """
         SELECT DISTINCT
             c.Setor_Curso as Setor,
             d.Departamento,
             c.Curso,
-            d.Nome_Disciplina
+            d.Nome_Disciplina,
+            d.Modalidade
         FROM dDisciplina d
         JOIN dCurso c ON d.Cod_Curso = c.Cod_Curso
-        ORDER BY 1, 2, 3, 4
+        ORDER BY 1, 2, 3, 4, 5
     """
     try:
         df = conn.execute(query).df()
@@ -44,14 +45,14 @@ def get_estrutura_academica():
     except Exception as e:
         print(f"Erro ao carregar estrutura acadêmica: {e}")
         # Retorna DataFrame vazio com colunas para evitar crash
-        return pd.DataFrame(columns=['Setor', 'Departamento', 'Curso', 'Nome_Disciplina'])
+        return pd.DataFrame(columns=['Setor', 'Departamento', 'Curso', 'Nome_Disciplina', 'Modalidade'])
     finally:
         conn.close()
 
 # Carrega a estrutura na memória ao iniciar a aplicação
 df_estrutura = get_estrutura_academica()
 
-# --- FUNÇÕES SQL: INSTITUCIONAL E CURSOS (MANTIDAS) ---
+#FUNÇÕES SQL: INSTITUCIONAL E CURSOS 
 
 def construir_filtros_simples(unidade, tabela_alias="f"):
     filtros = []
@@ -203,9 +204,9 @@ def get_distribuicao_sql(tipo_pergunta, unidade):
     finally:
         conn.close()
 
-# --- FUNÇÕES SQL: DISCIPLINAS (NOVAS COM HIERARQUIA) ---
+#  FUNÇÕES SQL: DISCIPLINAS 
 
-def construir_where_disciplina(setor, depto, curso, disciplina):
+def construir_where_disciplina(setor, depto, curso, disciplina, modalidade):
     filtros = []
     params = []
     
@@ -223,12 +224,15 @@ def construir_where_disciplina(setor, depto, curso, disciplina):
     if disciplina != "Todas":
         filtros.append("d.Nome_Disciplina = ?")
         params.append(disciplina)
+    if modalidade != "Todas":
+        filtros.append("d.Modalidade = ?")
+        params.append(modalidade)
         
     return (" AND ".join(filtros) if filtros else "1=1"), params
 
-def get_eixos_sql_disciplina(setor, depto, curso, disciplina):
+def get_eixos_sql_disciplina(setor, depto, curso, disciplina, modalidade):
     conn = get_db_connection()
-    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina)
+    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina, modalidade)
 
     query = f"""
         SELECT 
@@ -279,9 +283,9 @@ def get_eixos_sql_disciplina(setor, depto, curso, disciplina):
     finally:
         conn.close()
 
-def get_donut_sql_disciplina(setor, depto, curso, disciplina):
+def get_donut_sql_disciplina(setor, depto, curso, disciplina, modalidade):
     conn = get_db_connection()
-    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina)
+    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina, modalidade)
 
     query = f"""
         SELECT
@@ -302,9 +306,9 @@ def get_donut_sql_disciplina(setor, depto, curso, disciplina):
     finally:
         conn.close()
 
-def get_ranking_sql_disciplina(setor, depto, curso, disciplina):
+def get_ranking_sql_disciplina(setor, depto, curso, disciplina, modalidade):
     conn = get_db_connection()
-    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina)
+    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina, modalidade)
 
     query = f"""
         SELECT 
@@ -332,9 +336,9 @@ def get_ranking_sql_disciplina(setor, depto, curso, disciplina):
     finally:
         conn.close()
 
-def get_distribuicao_sql_disciplina(setor, depto, curso, disciplina):
+def get_distribuicao_sql_disciplina(setor, depto, curso, disciplina, modalidade):
     conn = get_db_connection()
-    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina)
+    where_clause, params = construir_where_disciplina(setor, depto, curso, disciplina, modalidade)
 
     query = f"""
         SELECT 
